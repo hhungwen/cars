@@ -1,0 +1,98 @@
+---
+title: "Second Challenge"
+author: "Hui-Chia Hung Wen"
+date: "2019/3/28"
+output: 
+  html_document:
+    theme: flatly
+    code_folding: hide
+    toc: true
+    toc_float: true
+---
+
+```{r, include=FALSE}
+library(tidyverse)
+library(USAboundaries)
+library(sf)
+library(ggplot2)
+library(lubridate)
+library(DT)
+library(maps)
+pacman::p_load(tidyverse, ggthemes)
+dat <- read_csv("https://byuistats.github.io/M335/data/Walmart_store_openings.csv")
+```
+
+#Background The Walmart Growth Visualization
+Walmart’s growth is astounding. It may be the last giant in the “brick and mortar” business1 story ever. Our friends at excelcharts.com have made some nice graphics showing the spatial and temporal patterns of Walmart’s growth. We can’t let Excel build such amazing graphics without a challenge from R!
+I have created a Walmart data repositoryWe have a walmart_timeloc.csv file that we can use to build our visualizations. You could use maps::us.cities to get populations for cities.
+
+#Challenge List
+
+- Recreate one of their graphics as close as you can using the skills you have developed this semester.
+- Examine the variables and create an original graphic of your own.
+```{r}
+
+dat <- dat%>%
+  mutate(c2 = as.numeric(county))
+dat <- dat%>%
+  mutate(s2 = as.numeric(st))
+
+states <- us_states()%>%
+  filter(!(state_name %in% c("Alaska", "District of Columbia", "Hawaii", "Puerto Rico")))%>%
+  data.frame()%>%
+  select(state_name,geometry)
+cities <- us_cities() %>% 
+  filter(!(state_name %in% c("Alaska", "District of Columbia", "Hawaii", "Puerto Rico")))%>%
+  data.frame()
+counties <- us_counties(resolution = "low") %>% 
+  mutate(statefp = as.numeric(statefp),
+         countyfp = as.numeric(countyfp))
+
+
+
+w4 <- left_join(counties, dat, by = c("statefp" = "s2","countyfp" = "c2")) %>% 
+  filter(!(state_name %in% c("Alaska", "District of Columbia", "Hawaii", "Puerto Rico")))
+
+w4<- w4%>%
+  mutate(Date = mdy(OPENDATE))
+w4<- w4%>%
+  mutate(year = year(Date))
+
+```
+
+```{r}
+uw <- w4%>%
+    group_by(state_name, year) %>%
+     summarise(sum_store = sum(storenum))%>%
+    data.frame()%>%
+     select(state_name, year, sum_store)%>%
+     left_join(states, by="state_name")
+```
+
+###Recreate the graph
+
+I tried to recreate the graph but I couldn't. It keeps showing that 
+"Error: stat_sf requires the following missing aesthetics: geometry"
+But I do have geometry in my data....
+Here is the code I tried to use
+<br>
+
+ggplot()+
+     geom_sf(data=uw, aes(fill= sum_store))+
+     facet_wrap( ~ year)+
+     ggtitle("Walmart in USA")+
+  scale_fill_gradient(low = "blue", high = "red")+
+  labs(title = "Walmart in the USA", fill="Number of Store")+
+  theme_bw()
+<br>
+
+```{r}
+plot(uw$geometry, col = "skyblue3")
+```
+
+```{r}
+ggplot(data = uw)+
+  geom_line(aes(x= year, y= sum_store))+
+  facet_wrap(~state_name)
+```
+
