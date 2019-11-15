@@ -1,0 +1,133 @@
+---
+title: "Case Study 8: It’s about time"
+author: "Hui-Chia Hung Wen"
+output: 
+  html_document:
+    theme: flatly
+    code_folding: hide
+    toc: true
+    toc_float: true
+    
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(DT)
+library(ggplot2)
+library(readr)
+library(lubridate)
+library(pander)
+
+sale <- read.csv("https://byuistats.github.io/M335/data/sales.csv")
+```
+#Background
+We have transaction data for a few businesses that have been in operation for three months. Each of these companies has come to your investment company for a loan to expand their business. Your boss has asked you to go through the transactions for each business and provide daily, weekly, and monthly gross revenue summaries and comparisons. Your boss would like a short write up with tables and visualizations that help with the decision of which company did the best over the three month period. You will also need to provide a short paragraph with your recommendation after building your analysis.
+
+##Tasks
+
+- Help your boss understand which business is the best investment through visualizations
+- Provide an understanding and recommendation for hours of operation
+-  Provide a final comparison of the six companies and a final recommendation
+```{r}
+sale <- sale%>%
+  filter(Name != "Missing")%>%
+  mutate(Time= ymd_hms(Time))%>%
+  with_tz("US/Arizona")%>%
+  separate(Time, into = c("Date", "Hour"), sep = " ", remove = FALSE) 
+  
+sale <- sale%>%
+  mutate(Date = ymd(Date),
+         Hour = hms(Time),
+         Weekday = wday(Date),
+         Month = month(Date))
+
+sale$day <- weekdays(as.Date(sale$Time))
+
+sale2 <- sale%>%
+  select(Name, Type, Time, day, Amount)
+```
+
+##Data
+```{r}
+datatable(sale2)
+```
+
+
+#Analysis
+
+##Daily Sale Summary
+```{r}
+s1 <- sale%>%
+  group_by(Name, day, Date)%>%
+  mutate(saleofday = sum(Amount))
+```
+
+The two plots below show the sale summary from April 20th to July 20th. We can see the change of earning amount each day and how it change throughout this three months. 
+```{r}
+ggplot(data = s1)+
+  geom_line(mapping = aes(x=Date, y=saleofday, color= Name))+
+  facet_wrap(~ Name, nrow =3 )+
+  theme_light()
+```
+```{r}
+ggplot(data=s1)+
+  geom_boxplot(mapping = aes(x=Name, y=saleofday, color=Name))+
+  coord_flip()+
+  theme_light()
+  
+```
+
+Overall, we can see that "Tacontento"", "Splash and Dash", and "Short Stop" only have a little difference in median. "LeBelle" has the highest earn of day, but "Hot Diggity" has the highest median. Lastly, "Frozone" has the lowest median.
+
+##Weekday Summary
+
+```{r}
+s4 <- s1 %>%
+  group_by(Name, day)%>%
+  mutate(weekdayearn = sum(Amount))
+```
+
+```{r}
+ggplot(data=s4)+
+  geom_point(mapping = aes(x=Name, y=weekdayearn, color=Name))+
+  facet_wrap(~ day, nrow =5 )+
+  coord_flip()+
+  theme_light()
+```
+
+
+##Monthly sale Summary
+```{r}
+s2 <- sale%>%
+  group_by(Name, Month)%>%
+  summarise(saleofMonth = sum(Amount))
+  
+```
+The two plots below show the monthly sale summary from April to July. We can see the change of earning amount each month and how it change throughout this three months. 
+```{r}
+ggplot(data = s2)+
+  geom_line(mapping = aes(x=Month, y=saleofMonth, color= Name))+
+  facet_wrap(~ Name, nrow =3 )+
+  theme_light()
+```
+```{r}
+ggplot(data=s2)+
+  geom_boxplot(mapping = aes(x=Name, y=saleofMonth, fill=Name))+
+  coord_flip()+
+  theme_light()
+  
+```
+From the box plot, we can see that "Frozone" still has the lowest earning, so I will take it out from the recommendation. "Hot Diggity" and "Tacontento" only have a slightly different in median, but take a look back to the first plot, we can see that the sale amount "Hot Diggity" is decreasing. It is risky to invest this company.
+
+```{r}
+s3<- sale%>%
+  group_by(Name)%>%
+  mutate(Mean = mean(Amount),
+            Most = max(Amount),
+            Less = min(Amount))
+```
+
+
+##Conclusion
+From the monthly summary, we can see that almost all the company's earning is decreasing except "Le belle" is still growing. Throughout the analysis, "Le Belle" is not always has the highest median earning, but we can see that the company is growing and. In conclusion, I would recommend that **"Le Belle"** is the best investment .
+

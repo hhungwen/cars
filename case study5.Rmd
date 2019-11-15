@@ -1,0 +1,183 @@
+---
+title: "Case Study 6: The collapse of construction in Idaho"
+author: "Hui-Chia Hung Wen"
+output:
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    theme: flatly
+    keep_md: true
+  
+---
+
+```{r setup, include=FALSE}
+library(tidyverse)
+library(buildings)
+library(ggplot2)
+library(DT)
+devtools::install_github("hathawayj/buildings")
+buildings::buildings0809
+buildings::climate_zone_fips
+buildings::permits
+buildings::restaurants
+
+building <- buildings::buildings0809
+climate <- buildings::climate_zone_fips
+permits <- buildings::permits
+restaurants <- buildings::restaurants
+
+```
+#Background 
+It is 2010, and you are working for the Idaho restaurant commission, and they need your help getting a clearer picture of how restaurant construction changed across Idaho from 2008 to 2009. They provided you a dataset of all commercial construction in Idaho for those two years. The data has a variable Type with a general category called Food_Beverage_Service that has other buildings besides restaurants in the category. You will need to use the restaurant names (see restaurants data object) and some additional key words to create the correct subgroupings. Your client expects to provide new data for 2010 and 2011 so your script needs to do the work.
+
+Question :
+
+- How did full-service restaurant construction compare to quick service restaurant construction across county and years?
+- How did restaurant construction fare compare to the other commercial construction in Idaho?
+- Which county in Idaho spent the most on fast food construction each year?
+- In that county how did other commercial construction compare?
+
+```{r}
+b1 <- building %>%
+  left_join(climate, by = c('FIPS.state','FIPS.county'))
+
+b2 <- b1%>% filter(Type == "Food_Beverage_Service")
+```
+
+```{r}
+not_restaurants <- c("development","Food preperation center", "Food Services center","bakery","Grocery","conceession","Cafeteria", "lunchroom","school","facility"," hall ")
+standalone_retail <- c("Wine","Spirits","Liquor","Convenience","drugstore","Flying J", "Rite Aid ","walgreens ","Love's Travel ")
+full_service_type <- c("Ristorante","mexican","pizza ","steakhouse"," grill ","buffet","tavern"," bar ","waffle","italian","steak house")
+quick_service_type <- c("coffee"," java "," Donut ","Doughnut"," burger ","Ice Cream ","custard ","sandwich ","fast food "," bagel ")
+quick_service_names <- restaurants$Restaurant[restaurants$Type %in% c("coffee","Ice Cream","Fast Food")]
+full_service_names <- restaurants$Restaurant[restaurants$Type %in% c("Pizza","Casual Dining","Fast Casual")]
+
+notRlist <- not_restaurants%>%
+  str_trim() %>%
+  str_to_lower() %>%
+  str_c(collapse = '|')
+
+Sretail <- standalone_retail%>%
+  str_to_lower() %>%
+  str_trim() %>%
+  str_c(collapse = '|')
+
+Ftype <- full_service_type%>%
+  str_to_lower() %>%
+  str_trim() %>%
+  str_c(collapse = '|')
+
+Qtype <- quick_service_type %>% 
+  str_to_lower() %>% 
+  str_trim() %>% 
+  str_c(collapse = '|')
+
+Fname <- full_service_names %>% 
+  str_to_lower() %>% 
+  str_trim() %>% 
+  str_c(collapse = '|')
+
+Qname <- QSnames <- quick_service_names %>% 
+  str_to_lower() %>% 
+  str_trim() %>% 
+  str_c(collapse = '|')
+
+
+b3<- b2%>%
+  mutate(ProjectTitle = str_to_lower(ProjectTitle))
+
+
+b3 <- b3 %>%
+  mutate(subgroups = case_when(
+    str_detect(ProjectTitle, notRlist) ~ "not_restaurants",
+    str_detect(ProjectTitle, Sretail) ~ "standalone_retail",
+    str_detect(ProjectTitle, Ftype) ~ "full_service_type", 
+    str_detect(ProjectTitle, Qtype) ~ "quick_service_type",
+    str_detect(ProjectTitle, Qname) ~ "quick_service_type",
+    str_detect(ProjectTitle, Fname) ~ "quick_service_type",
+    SqFt > 4000     ~     "full_service_restaurants",
+    SqFt <= 4000   ~     "quick_service_restaurants"
+  ))
+
+b4<- b3%>%
+  select(ProjectTitle, subgroups, Year, County.y, Value1000)
+
+q1 <- b4 %>%
+  filter(subgroups == "full_service_type" | subgroups == "quick_service_type")
+
+q2 <- b3 %>%
+  mutate(rest = case_when(subgroups == "not_restaurants" | subgroups == "stand_alone_retail"   ~ "Commercial",  subgroups == "full_service_type" | subgroups == "quick_service_type" | subgroups == "full_service_names" | subgroups == "quick_service_names"   ~  "Restaurant")) %>%
+  filter(rest == "Commercial" | rest == "Restaurant")
+
+q3 <- b3 %>%
+  filter(subgroups == "quick_service_names" | subgroups == "quick_service_type")
+
+q4 <- b3 %>%
+  filter(County.x == "ADA, ID")
+```
+
+```{r}
+datatable(b3,options=list(lengthMenu = c(3,10,30)), extensions="Responsive")
+```
+
+#Analysis
+
+###1. How did full-service restaurant construction compare to quick service restaurant construction across county and years?
+
+```{r}
+p1 <- q2 %>%
+  ggplot(aes(x = County.y, y = Value1000, color = subgroups)) +
+  geom_point(size = 2) +
+  facet_wrap( ~ Year, nrow = 1) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), panel.background = element_rect(fill = 'floralwhite'))+
+  labs(x = "County", y = "Value")
+
+p1
+```
+
+From looking at the information and the plot, we can see that the full service restaurant had higher values. There are a few quick service restaurant is higher, but generally, full service restairant is higher across the year.
+
+
+###2. How did restaurant construction fare compared to the other commercial construction in idaho?
+
+```{r}
+p2 <-  q2%>%
+  ggplot(aes(x = Month, y = Value1000, color = rest)) +
+  geom_point(size = 2) +
+  facet_wrap(~Year, nrow = 1)+
+  theme_grey()
+
+p2
+```
+
+According to these plots, we can see that commercial construction is much more popular in Idaho than restaurant construction between 2008 and 2009.
+
+###3. Which county in Idaho spent the most on fast food construction each year?
+
+```{r}
+p3 <- q3%>%
+  ggplot(aes(x = County.x, y = Value1000)) +
+  geom_boxplot(fill = "lightblue2") +
+  geom_point(alpha = 1) +
+  theme_grey()+
+  labs(x = "County", y = "Value")
+p3
+```
+
+From looking at the box plot, "ADA" County spemt the most on fast food condtruction.
+
+###4. In that county how did other commercial construction compare?
+
+```{r}
+p4 <- q4 %>%
+  ggplot(aes(x= subgroups, y= Value1000)) +
+  geom_point(alpha = 1)+
+  geom_boxplot(fill = "lightblue2")+
+  theme_grey()+
+  labs(x = "Type", y = "Value")
+
+p4
+```
+
+The full service type had the highest values.

@@ -1,0 +1,114 @@
+---
+title: "case study 7-1"
+author: "Hui-Chia Hung Wen"
+date: "2019/2/22"
+output: 
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    theme: flatly
+    keep_md: true
+---
+
+```{r}
+
+library(tidyverse)
+library(readr)
+library(stringi)
+library(pander)
+library(ggplot2)
+scriptures <- rio::import("http://scriptures.nephi.org/downloads/lds-scriptures.csv.zip")
+
+bmnames <- read_rds(gzcon(url("https://byuistats.github.io/M335/data/BoM_SaviorNames.rds")))
+```
+# Background
+
+In 1978 Susan Easton Black penned an article in the Ensign title Even statistically, he is the dominant figure of the Book of Mormon. which makes some statistical claims about the Book of Mormon. With our “string” skills we are going to check her result and build an improved statistic using using number of words between references.
+
+```{r}
+bom <-
+scriptures %>% 
+  filter(volume_title == "Book of Mormon") %>% 
+  mutate(scripture_text = book_title %>% str_c(": ",scripture_text))
+
+savior_name <-
+  bmnames %>% .$name %>% unique() %>% rev()
+
+just_text <- bom$scripture_text %>% str_flatten() %>% unlist() 
+
+for (i in seq_along(savior_name)){
+  just_text <- str_replace_all(just_text, savior_name[i], "SAVIOR_LIST")
+}  
+
+```
+
+```{r}
+bew <- just_text %>% str_split("SAVIOR_LIST") %>% unlist()
+bew_count <- bew %>% map(function(x) stri_stats_latex(x)['Words']) %>% unlist()
+```
+
+```{r}
+
+book_titles <- bom %>% .$book_title %>% unique()
+
+book_title_list <- bom %>% .$book_title %>% unique() %>% str_flatten(collapse = "|")
+```
+
+```{r}
+dat <- data.frame(bew,bew_count) %>% mutate(book_title = bew %>% str_extract(book_title_list)) %>% fill(book_title, .direction = "down") %>% mutate(book_title = factor(book_title, levels = book_titles))
+```
+
+
+#Tasks
+
+* Get the scripture and savior name data into R
+* Download the data from http://scriptures.nephi.org/downloads/lds-scriptures.csv.zip
+* Read in the .csv file that was in the zip file and examine the structure of the data
+* Use read_rds(gzcon(url("https://byuistats.github.io/M335/data/BoM_SaviorNames.rds"))) to download and load the Savior names table into R
+* Use the list of Savior names and the Book of Mormon verses to figure out the average number of words between references to the Savior
+* Find each instance of a Savior name in the Book of Mormon
+* Split on those instances and then count the number of words between each instance
+* Use the example code below for some hints on how to tackle this task
+* Report the average number of words between each Savior name
+
+#Data Visualizations
+```{r}
+
+dat_average <-
+  dat %>% group_by(book_title) %>% summarise(avg_count = mean(bew_count))
+
+dat_total_average <- mean(dat$bew_count)
+```
+```{r}
+pander(dat_average)
+```
+
+```{r}
+dat_average%>%
+  ggplot(aes(x=book_title, y= avg_count, fill= book_title))+
+  geom_col()+
+  theme(axis.text.x = element_text(angle = 45, h =1))+
+  theme_light()
+```
+
+```{r}
+dat %>% 
+  ggplot(aes(x = book_title, y = bew_count)) +
+  geom_jitter(width = 0.2, color = "lightblue") +
+  geom_boxplot( outlier.color = NA) + 
+  geom_point(data = dat_average, aes(x = book_title, y = avg_count * 2), color = "darkred", size = 3) +  
+  theme_light() + 
+  labs(x = "", y = "The number of words") +
+  coord_cartesian(ylim = c(0,1000)) +
+  theme(axis.text.x = element_text(angle = 45, h =1))
+
+```
+
+```{r}
+dat %>%
+  ggplot(aes(x = book_title, y = bew_count, fill= book_title))+
+  geom_col()+
+  theme(axis.text.x = element_text(angle = 45, h =1))
+```
+

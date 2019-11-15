@@ -1,0 +1,86 @@
+---
+title: "Case Study 4"
+author: "Hui-Chia Hung Wen"
+date: "2019/2/1"
+output: 
+  html_document:
+    code_folding: hide
+    toc: true
+    toc_float: true
+    theme: flatly
+    keep_md: true
+---
+
+```{r, include=FALSE}
+library(readr)
+library(ggplot2)
+library(tidyverse)
+library(tidyr)
+library(pander)
+
+datagun <- read_csv("https://raw.githubusercontent.com/fivethirtyeight/guns-data/master/full_data.csv")
+```
+# Background
+The world is a dangerous place. During 2015 and 2016 there was a lot of discussion in the news about police shootings. FiveThirtyEight reported on gun deaths in 2016. As leaders in data journalism, they have posted a clean version of this data in their GitHub repo called full_data.csv for us to use.
+
+While their visualizations focused on yearly averages, our client wants to create commercials that help reduce the gun deaths in the US. They would like to target the commercials in different seasons of the year (think month variable) to audiences that could have the most impact in reducing gun deaths. Our challenge is to summarize and visualize seasonal trends accros the other variables in these data.
+
+## Tasks
+
+- Provide a brief summary of the FiveThirtyEight article
+- Create one plot that provides similar insight to their visualization in the article. It does not have to look like theirs.
+- Write a short paragraph summarizing their article
+- Address the client’s need for emphasis areas of their commercials for different seasons of the year.
+- Provide plots that help them know the different potential groups (variables) they could address in different seasons (2-4 visualizations seem necessary)
+- Write a short paragraph describing each image
+- Compile your .md and .html file into your git repository
+
+```{r}
+datagun <- datagun %>%
+  mutate(season  = case_when(
+    month %in% c("03", "04", "05") ~ "Spring",
+    month %in% c("06", "07", "08") ~ "Summer",
+    month %in% c("09", "10", "11") ~ "Fall",
+    month %in% c("12", "01", "02") ~ "Winter"))
+```
+
+
+# Analysis
+Nowadays, people are worried about the issue of gun management. we can often see school shootings, or shooting in the public that kind of news on the TV. It makes people start to think whether the neiborhood they live are safe. But, have you ever think about, what is the top reason that cause people died from the gun-shot?
+```{r}
+datagun %>%
+  group_by(year) %>%
+  count(intent) %>%
+  ggplot(aes(x = year, y = n, fill = intent))+geom_area(color = "black", )+labs(title = "Gun Deaths in America Each Year", y = "Number of Death")+theme_light()
+```
+
+
+```{r}
+ggplot(datagun, aes(x=season, fill = intent,))+
+geom_bar(color="black")+labs(title = "Gun Deaths in America on each season")
+```
+Base on these two charts, they show the number of people who died from gun deaths each year in America. The result shows that suicide and homicide is the top two reason that causes gun violence, which is included more than 80% of all incident.
+
+#Analysis 2
+
+This chart analyze the number of people died from gun death in different race. Racism is one of the biggest issues in America, so many people worried about their safety because of this problem. However, according to this chart, it shows that the largest portion of the death issue are White people. 
+```{r}
+datagun %>%
+  group_by(year) %>%
+  count(race) %>%
+  ggplot(aes(x = year, y = n, fill = race))+geom_area()+labs(title = "Gun Deaths in each race", y = "Number of Death")+theme_gray()
+```
+
+
+```{r}
+datagun %>% 
+  group_by(season, intent) %>%
+  summarise(count = n()) %>%
+  ggplot(aes(x = season, y = count, color = intent)) + 
+  geom_point() +
+  geom_line(aes(group =intent ))+
+  theme_gray()+
+  labs(title = "Gun Deaths Throughout the Year by Race",
+       x = "Season",y = "Total Deaths")
+```
+
